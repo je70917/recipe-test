@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dinner Recipe Generator</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Dinner Recipe Generator</h1>
+      <p class="subtitle">Open the fridge and discover your dinner recipe!</p>
+
+      <div class="bowl-container">
+        <div class="bowl">
+          <div class="recipe-paper" id="recipePaper">
+            <button class="close-button" id="closeButton">✕</button>
+            <div class="recipe-content">
+              <h2 id="recipeName">Your Recipe Awaits!</h2>
+              <div id="recipeDetails">
+                <p>
+                  Click the button below to draw a random recipe from our
+                  collection.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="drawButton" class="draw-button">Open the Fridge</button>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
