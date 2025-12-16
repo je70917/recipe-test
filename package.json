@@ -1,0 +1,29 @@
+{
+  "name": "windsurf-project-4",
+  "version": "1.0.0",
+  "description": "An interactive web application that simulates opening a refrigerator to discover random dinner recipes.",
+  "main": "app.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/je70917/recipe-test.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/je70917/recipe-test/issues"
+  },
+  "homepage": "https://github.com/je70917/recipe-test#readme",
+  "devDependencies": {
+    "wrangler": "^4.55.0"
+  },
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.4.1"
+  }
+}
