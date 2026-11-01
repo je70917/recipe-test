@@ -219,6 +219,7 @@ main {
 /* ---------- Cards ---------- */
 .cards {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-bottom: 24px;
 }
@@ -260,6 +261,10 @@ main {
   border-radius: 12px;
   font-size: 1.5rem;
   background: color-mix(in srgb, var(--cat) 16%, var(--surface));
+}
+
+.placeholder .card-meta {
+  white-space: normal;
 }
 
 .placeholder .card-emoji {
