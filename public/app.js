@@ -3,10 +3,12 @@
 /* ------------------------------------------------------------------ *
  * Config
  * ------------------------------------------------------------------ */
+// Public Overpass servers (the same ones overpass-turbo.eu offers). Tried in order.
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
 ];
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // re-use nearby results for 12h
@@ -48,6 +50,7 @@ const state = {
   restaurants: [],
   status: "idle", // idle | loading | ready | error
   error: "",
+  errorDetails: [],
   picks: Array(PICK_COUNT).fill(null),
   locked: Array(PICK_COUNT).fill(false),
   view: "shuffle",
@@ -206,10 +209,13 @@ async function searchPlaces(query) {
 }
 
 function overpassQuery(lat, lon, radius) {
+  const around = `(around:${Math.round(radius)},${lat.toFixed(5)},${lon.toFixed(5)})`;
+  // Exact-match filters are much cheaper for the server than a regex.
   return (
-    `[out:json][timeout:25];` +
-    `nwr["amenity"~"^(restaurant|fast_food)$"]["name"](around:${Math.round(radius)},${lat.toFixed(5)},${lon.toFixed(5)});` +
-    `out center tags;`
+    `[out:json][timeout:25];(` +
+    `nw["amenity"="restaurant"]["name"]${around};` +
+    `nw["amenity"="fast_food"]["name"]${around};` +
+    `);out center tags qt;`
   );
 }
 
@@ -243,20 +249,48 @@ function parseElements(elements, lat, lon) {
   return out.sort((a, b) => a.distance - b.distance);
 }
 
+class FetchError extends Error {
+  constructor(message, details) {
+    super(message);
+    this.details = details;
+  }
+}
+
+function describeFailure(err) {
+  if (err.name === "AbortError") return "timed out";
+  if (err instanceof TypeError) return "blocked or offline"; // network error, CORS, or an extension blocked it
+  return err.message;
+}
+
+async function queryEndpoint(url, body) {
+  const res = await fetchWithTimeout(url, { method: "POST", body }, 25000);
+  if (!res.ok) throw new Error(res.status === 429 ? "busy (429)" : res.status === 504 ? "overloaded (504)" : `HTTP ${res.status}`);
+  const json = await res.json();
+  // Overpass reports server-side timeouts as a 200 with a "remark" and partial/no data.
+  if (json.remark && /error|timed out/i.test(json.remark)) throw new Error("server timed out");
+  return json.elements || [];
+}
+
 async function fetchRestaurants(lat, lon, radius) {
   const body = new URLSearchParams({ data: overpassQuery(lat, lon, radius) });
-  let lastErr;
+  const failures = [];
   for (const url of OVERPASS_ENDPOINTS) {
     try {
-      const res = await fetchWithTimeout(url, { method: "POST", body }, 30000);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      return parseElements(json.elements || [], lat, lon);
+      const elements = await queryEndpoint(url, body);
+      return parseElements(elements, lat, lon);
     } catch (e) {
-      lastErr = e;
+      const host = new URL(url).hostname;
+      failures.push(`${host}: ${describeFailure(e)}`);
+      console.warn("Overpass failed", host, e);
     }
   }
-  throw lastErr || new Error("No restaurant service reachable");
+  const allBlocked = failures.every((f) => f.endsWith("blocked or offline"));
+  throw new FetchError(
+    allBlocked
+      ? "Couldn't connect to the restaurant map service. Check your internet, and turn off ad blockers or browser shields for this page."
+      : "The restaurant map servers are busy right now. Wait a few seconds and tap Retry, or pick a smaller radius.",
+    failures
+  );
 }
 
 const cacheKey = (loc, radius) => `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)},${Math.round(radius)}`;
@@ -291,7 +325,8 @@ async function loadRestaurants({ force = false } = {}) {
   } catch (e) {
     console.error(e);
     state.status = "error";
-    state.error = "Couldn't reach the restaurant map service. Check your connection and try again.";
+    state.error = e.message || "Couldn't load restaurants.";
+    state.errorDetails = e.details || [];
   }
   render();
 }
@@ -475,7 +510,15 @@ function renderStatus() {
     el.append(h("span", { class: "spinner", "aria-hidden": "true" }), "Finding restaurants nearby…");
   } else if (state.status === "error") {
     el.classList.add("error");
-    el.append(state.error, " ", h("button", { class: "link", type: "button", onclick: () => loadRestaurants({ force: true }) }, "Retry"));
+    el.append(
+      h("span", null, state.error),
+      h("button", { class: "link", type: "button", onclick: () => loadRestaurants({ force: true }) }, "Retry"),
+      h("button", { class: "link", type: "button", onclick: openSheet }, "Change radius")
+    );
+    if (state.errorDetails?.length) {
+      el.append(h("details", { class: "error-details" }, h("summary", null, "Details"),
+        h("ul", null, state.errorDetails.map((d) => h("li", null, d)))));
+    }
   } else if (state.status === "ready") {
     const pool = poolByCategory();
     const total = [...pool.values()].reduce((n, l) => n + l.length, 0);

@@ -201,6 +201,21 @@ main {
   color: #d23b2a;
 }
 
+.error-details {
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.error-details summary {
+  cursor: pointer;
+}
+
+.error-details ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
 .spinner {
   width: 16px;
   height: 16px;
