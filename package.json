@@ -1,29 +1,20 @@
 {
-  "name": "windsurf-project-4",
-  "version": "1.0.0",
-  "description": "An interactive web application that simulates opening a refrigerator to discover random dinner recipes.",
-  "main": "app.js",
+  "name": "dinner-shuffle",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Mobile web app that shuffles 3 nearby restaurants from 3 different cuisines.",
   "scripts": {
+    "start": "python3 -m http.server 8000 --directory public",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/je70917/recipe-test.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/je70917/recipe-test/issues"
-  },
-  "homepage": "https://github.com/je70917/recipe-test#readme",
+  "license": "MIT",
   "devDependencies": {
     "wrangler": "^4.55.0"
-  },
-  "dependencies": {
-    "@cloudflare/kv-asset-handler": "^0.4.1"
   }
 }

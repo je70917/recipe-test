@@ -1,40 +1,111 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dinner Recipe Generator</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="Can't decide where to eat? Shuffle 3 nearby restaurants from 3 different cuisines." />
+    <meta name="theme-color" content="#e8553d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Dinner Shuffle" />
+    <title>Dinner Shuffle</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="styles.css" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
-    <div class="container">
-      <h1>Dinner Recipe Generator</h1>
-      <p class="subtitle">Open the fridge and discover your dinner recipe!</p>
+    <header class="topbar">
+      <div class="brand"><span aria-hidden="true">🎲</span> Dinner Shuffle</div>
+      <button id="locationPill" class="pill" type="button" aria-label="Change location and search radius">
+        <span aria-hidden="true">📍</span> <span id="locationLabel">Set location</span>
+      </button>
+    </header>
 
-      <div class="bowl-container">
-        <div class="bowl">
-          <div class="recipe-paper" id="recipePaper">
-            <button class="close-button" id="closeButton">✕</button>
-            <div class="recipe-content">
-              <h2 id="recipeName">Your Recipe Awaits!</h2>
-              <div id="recipeDetails">
-                <p>
-                  Click the button below to draw a random recipe from our
-                  collection.
-                </p>
-              </div>
-            </div>
+    <main>
+      <!-- First run: no location yet -->
+      <section id="view-setup" class="view setup">
+        <div class="hero" aria-hidden="true">🥟🍣🌮🍕🍜</div>
+        <h1>Can't decide where to eat?</h1>
+        <p class="lead">
+          Dinner Shuffle finds restaurants near you and gives you three picks, each from a different cuisine.
+        </p>
+        <button id="setupLocate" class="btn primary big" type="button">📍 Use my location</button>
+        <button id="setupSearch" class="btn big" type="button">Search a city or address</button>
+        <p id="setupError" class="error-text" role="alert"></p>
+        <p class="fine">Your location is only used to find nearby restaurants and stays on your phone.</p>
+      </section>
+
+      <!-- Main: shuffle -->
+      <section id="view-shuffle" class="view" hidden>
+        <p id="status" class="status" aria-live="polite"></p>
+        <div id="cards" class="cards"></div>
+
+        <div class="section-head">
+          <h2>In the mood for…</h2>
+          <div class="head-actions">
+            <button id="allOn" class="link" type="button">All</button>
+            <button id="allOff" class="link" type="button">None</button>
           </div>
         </div>
-      </div>
+        <div id="chips" class="chips"></div>
+      </section>
 
-      <button id="drawButton" class="draw-button">Open the Fridge</button>
+      <!-- Browse everything nearby -->
+      <section id="view-browse" class="view" hidden>
+        <div class="section-head">
+          <h2>Nearby by category</h2>
+          <button id="refreshBtn" class="link" type="button">Refresh</button>
+        </div>
+        <div id="browseList"></div>
+      </section>
+
+      <!-- History -->
+      <section id="view-history" class="view" hidden>
+        <div class="section-head">
+          <h2>Recent dinners</h2>
+          <button id="clearHistory" class="link" type="button">Clear</button>
+        </div>
+        <label class="toggle">
+          <input id="avoidRecent" type="checkbox" />
+          <span>Skip places we went to in the last 7 days</span>
+        </label>
+        <ul id="historyList" class="rows"></ul>
+      </section>
+    </main>
+
+    <div class="shuffle-bar" hidden>
+      <button id="shuffleBtn" class="shuffle-btn" type="button" disabled>🔀 Shuffle</button>
     </div>
 
+    <nav class="tabbar" hidden aria-label="Sections">
+      <button class="tab" type="button" data-view="shuffle"><span aria-hidden="true">🎲</span>Shuffle</button>
+      <button class="tab" type="button" data-view="browse"><span aria-hidden="true">📋</span>Browse</button>
+      <button class="tab" type="button" data-view="history"><span aria-hidden="true">🕒</span>History</button>
+    </nav>
+
+    <dialog id="locationSheet" class="sheet" aria-labelledby="sheetTitle">
+      <div class="sheet-inner">
+        <div class="section-head">
+          <h2 id="sheetTitle">Where are you?</h2>
+          <button id="sheetClose" class="link" type="button">Done</button>
+        </div>
+        <button id="sheetLocate" class="btn primary big" type="button">📍 Use my current location</button>
+        <form id="searchForm" class="search" role="search">
+          <input id="searchInput" type="search" placeholder="City, neighborhood or address" autocomplete="off" enterkeyhint="search" aria-label="Search for a place" />
+          <button class="btn" type="submit">Search</button>
+        </form>
+        <p id="sheetError" class="error-text" role="alert"></p>
+        <ul id="searchResults" class="rows"></ul>
+        <h3>Search radius</h3>
+        <div id="radiusChips" class="chips"></div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="categories.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
