@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#e8553d"/>
+  <circle cx="256" cy="268" r="150" fill="#fff"/>
+  <circle cx="256" cy="268" r="112" fill="#fbe3dc"/>
+  <g fill="#fff">
+    <rect x="62" y="150" width="16" height="230" rx="8"/>
+    <rect x="434" y="150" width="16" height="230" rx="8"/>
+  </g>
+  <g fill="#e8553d">
+    <circle cx="208" cy="220" r="20"/>
+    <circle cx="304" cy="220" r="20"/>
+    <circle cx="256" cy="268" r="20"/>
+    <circle cx="208" cy="316" r="20"/>
+    <circle cx="304" cy="316" r="20"/>
+  </g>
+</svg>

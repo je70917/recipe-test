@@ -1,44 +1,73 @@
-# Dinner Recipe Generator
+# 🎲 Dinner Shuffle
 
-An interactive web application that simulates opening a refrigerator to discover random dinner recipes.
+Can't decide where to eat? Dinner Shuffle finds restaurants near you, sorts them by cuisine,
+and gives you **3 picks, each from a different category**.
 
 ## Features
 
-- 🧊 Interactive refrigerator design
-- 🎲 Random recipe selection
-- 🖼️ Beautiful food photography
-- 📱 Responsive layout
-- ⌨️ Keyboard shortcuts (Space/Enter to open, Escape to close)
+- 📍 **Nearby restaurants**: uses your phone's location, or you can search any city or address
+- 🥢 **Grouped by cuisine**: Chinese, Japanese, Korean, Thai, Vietnamese, Indian, Other Asian, Italian,
+  Pizza, Mexican, Latin American, Mediterranean, American, Fast Food, Seafood, European, African
+- 🔀 **Shuffle**: 3 random restaurants from 3 different cuisines. Tap 🔓 to keep a pick while you reshuffle the others
+- ✅ **In the mood for…**: turn categories on or off to control what goes into the shuffle
+- 🗺️ **Let's go**: opens directions (Apple Maps on iPhone, Google Maps elsewhere). Call and Website buttons when available
+- 🕒 **History**: remembers where you went and skips places from the last 7 days (can be turned off)
+- 📋 **Browse**: every nearby restaurant, listed by category and distance
+- 📱 **Installable app (PWA)**: add it to your home screen and it opens full-screen like a native app, with dark mode
 
-## Recipes Included
+## Installing on your phone
 
-- Pasta Carbonara
-- Vegetable Stir Fry
-- Classic Burger
-- Chicken Curry
-- Caesar Salad
+1. Open the deployed URL on your phone (it must be **https**, or location won't work).
+2. **iPhone (Safari):** Share → *Add to Home Screen*.
+   **Android (Chrome):** ⋮ menu → *Install app* / *Add to Home screen*.
+3. Allow location access the first time you tap **Use my location**.
 
-## Technologies Used
+## Where the data comes from
 
-- HTML5
-- CSS3 (Grid, Flexbox, Animations)
-- Vanilla JavaScript
-- Unsplash for recipe images
+Restaurants come from [OpenStreetMap](https://www.openstreetmap.org/) via the free
+[Overpass API](https://overpass-api.de/), and place search uses [Nominatim](https://nominatim.org/).
+Neither needs an API key. Results are cached on the device for 12 hours.
 
-## Local Development
+OpenStreetMap coverage varies by area. Places with no cuisine tag go into **Other**, which is off
+by default. Ratings, photos and "open now" would need a commercial source such as Google Places or
+Yelp, which require an API key (see *Ideas*).
 
-Simply open `index.html` in a web browser, or run a local server:
+## Project layout
 
-```bash
-python3 -m http.server 8000
+```
+public/
+├── index.html            # App shell
+├── styles.css            # Mobile-first styles (light + dark)
+├── categories.js         # Cuisine → category mapping
+├── app.js                # Location, fetching, shuffle, UI
+├── manifest.webmanifest  # PWA manifest
+├── sw.js                 # Service worker (offline app shell)
+└── icons/
+test/                     # Unit tests (node --test)
+wrangler.toml             # Cloudflare static-assets config
 ```
 
-Then visit `http://localhost:8000`
+## Development
+
+```bash
+npm start          # http://localhost:8000 (location works on localhost)
+npm test           # unit tests for cuisine categorisation
+```
+
+To add or adjust a category, edit `public/categories.js`. Each category lists the OpenStreetMap
+`cuisine=*` values it matches.
 
 ## Deployment
 
-This project is deployed on Cloudflare Pages and can be accessed at your custom domain.
+See [DEPLOYMENT.md](DEPLOYMENT.md) (`npm run deploy` to Cloudflare).
+
+## Ideas
+
+- "Open now" filter (parse `opening_hours`)
+- Ratings and photos via Google Places / Yelp, proxied through a Cloudflare Worker to keep the API key secret
+- Price-level filter, favourites, sharing the 3 picks with a friend to vote
+- Wrap as a native App Store / Play Store app with Capacitor
 
 ## License
 
-MIT License
+MIT
