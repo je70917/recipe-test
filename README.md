@@ -13,6 +13,10 @@ and gives you **3 picks, each from a different category**.
 - 🗺️ **Let's go**: opens directions (Apple Maps on iPhone, Google Maps elsewhere). Call and Website buttons when available
 - 🕒 **History**: remembers where you went and skips places from the last 7 days (can be turned off)
 - 📋 **Browse**: every nearby restaurant, listed by category and distance
+- 🚫 **Hide closed places**: ⋯ → *Hide this place*, with Undo. Bring them back from History
+- 🏷️ **Fix categories**: ⋯ → *Category* moves a place into the right group
+- ➕ **Add missing restaurants**: Browse → *Add a restaurant*, found on the map by name or address
+- 🔎 **Smarter sorting**: places with no cuisine tag are sorted by name ("Seoul Garden" → Korean)
 - 📱 **Installable app (PWA)**: add it to your home screen and it opens full-screen like a native app, with dark mode
 
 ## Installing on your phone
@@ -28,8 +32,10 @@ Restaurants come from [OpenStreetMap](https://www.openstreetmap.org/) via the fr
 [Overpass API](https://overpass-api.de/), and place search uses [Nominatim](https://nominatim.org/).
 Neither needs an API key. Results are cached on the device for 12 hours.
 
-OpenStreetMap coverage varies by area. Places with no cuisine tag go into **Other**, which is off
-by default. Ratings, photos and "open now" would need a commercial source such as Google Places or
+OpenStreetMap coverage varies by area. Places with no cuisine tag are sorted by their name when
+possible; the rest go into **Other**, which is off by default. Places marked closed in the map data
+are skipped. Hidden places, category fixes and your own added restaurants are saved on your device.
+To fix the map for everyone, edit the place on [openstreetmap.org](https://www.openstreetmap.org/). Ratings, photos and "open now" would need a commercial source such as Google Places or
 Yelp, which require an API key (see *Ideas*).
 
 ## Project layout

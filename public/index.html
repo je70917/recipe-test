@@ -56,8 +56,11 @@
       <section id="view-browse" class="view" hidden>
         <div class="section-head">
           <h2>Nearby by category</h2>
-          <button id="refreshBtn" class="link" type="button">Refresh</button>
+          <div class="head-actions">
+            <button id="refreshBtn" class="link" type="button">Refresh</button>
+          </div>
         </div>
+        <button id="addBtn" class="btn add-btn" type="button">➕ Add a restaurant that's missing</button>
         <div id="browseList"></div>
       </section>
 
@@ -72,6 +75,11 @@
           <span>Skip places we went to in the last 7 days</span>
         </label>
         <ul id="historyList" class="rows"></ul>
+
+        <div class="section-head spaced">
+          <h2>Hidden places</h2>
+        </div>
+        <ul id="hiddenList" class="rows"></ul>
       </section>
     </main>
 
@@ -101,6 +109,47 @@
         <h3>Search radius</h3>
         <div id="radiusChips" class="chips"></div>
       </div>
+    </dialog>
+
+    <dialog id="placeSheet" class="sheet" aria-labelledby="placeTitle">
+      <div class="sheet-inner">
+        <div class="section-head">
+          <h2 id="placeTitle">Place</h2>
+          <button id="placeClose" class="link" type="button">Done</button>
+        </div>
+        <p id="placeMeta" class="row-meta"></p>
+        <label class="field">
+          <span>Category</span>
+          <select id="placeCategory"></select>
+        </label>
+        <button id="placeHide" class="btn big danger" type="button">🚫 Hide this place</button>
+        <p class="fine">For places that closed or that you never want suggested. You can bring them back from History.</p>
+        <button id="placeDelete" class="btn big danger" type="button" hidden>Remove from my places</button>
+      </div>
+    </dialog>
+
+    <dialog id="addSheet" class="sheet" aria-labelledby="addTitle">
+      <form id="addForm" class="sheet-inner" novalidate>
+        <div class="section-head">
+          <h2 id="addTitle">Add a restaurant</h2>
+          <button id="addClose" class="link" type="button">Cancel</button>
+        </div>
+        <label class="field">
+          <span>Name</span>
+          <input id="addName" maxlength="80" autocomplete="off" placeholder="e.g. Seoul Garden" />
+        </label>
+        <label class="field">
+          <span>Category</span>
+          <select id="addCategory"></select>
+        </label>
+        <label class="field">
+          <span>Address <em>(optional)</em></span>
+          <input id="addAddress" maxlength="160" autocomplete="off" placeholder="Leave blank to find it by name nearby" />
+        </label>
+        <p id="addError" class="error-text" role="alert"></p>
+        <button id="addSave" class="btn primary big" type="submit">Save</button>
+        <p class="fine">Saved on this device only.</p>
+      </form>
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

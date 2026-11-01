@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const { categorize, parseCuisines, CATEGORIES } = require("../public/categories.js");
+const { categorize, categoryFromName, parseCuisines, CATEGORIES } = require("../public/categories.js");
 
 test("parses multi-value and mixed-case cuisine tags", () => {
   assert.deepStrictEqual(parseCuisines("Sushi; Ramen"), ["sushi", "ramen"]);
@@ -22,6 +22,24 @@ test("maps cuisines to cultural categories", () => {
 
 test("first recognised cuisine wins", () => {
   assert.strictEqual(categorize({ cuisine: "vegan;thai;chinese" }), "thai");
+});
+
+test("guesses category from the name when there is no usable cuisine tag", () => {
+  const cases = {
+    "Seoul Garden": "korean", "Kimchi House": "korean", "Korean Fried Chicken": "korean", "BBQ Chicken": "korean",
+    "Lu's Dragon Express": "chinese", "Sakura Sushi": "japanese", "Pho 88": "vietnamese", "Bangkok Basil": "thai",
+    "Taqueria El Sol": "mexican", "Tony's Pizza": "pizza", "Joe's Smokehouse": "american",
+  };
+  for (const [name, expected] of Object.entries(cases)) {
+    assert.strictEqual(categorize({ amenity: "restaurant", name }), expected, name);
+  }
+  assert.strictEqual(categoryFromName("Golden Corral"), null);
+  assert.strictEqual(categoryFromName("The Grill Room"), null);
+});
+
+test("a recognised cuisine tag beats the name", () => {
+  assert.strictEqual(categorize({ amenity: "restaurant", name: "Tokyo Joe's", cuisine: "american" }), "american");
+  assert.strictEqual(categorize({ amenity: "restaurant", name: "Seoul Taco", cuisine: "vegan" }), "korean");
 });
 
 test("falls back to fast food or other", () => {

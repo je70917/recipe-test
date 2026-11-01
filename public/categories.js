@@ -70,15 +70,42 @@ function parseCuisines(tag) {
     .filter(Boolean);
 }
 
-/** Decide which category an OSM place belongs to. */
+/**
+ * Many places on the map have no cuisine tag. When that happens we guess from the
+ * name ("Seoul Garden" -> Korean). Checked in order, so more specific cuisines come
+ * first (e.g. "Korean Fried Chicken" is Korean, not Fast Food).
+ */
+const NAME_HINTS = [
+  ["korean", /\b(korean|korea|seoul|busan|k-?bbq|bibimbap|kimchi|bulgogi|galbi|kalbi|gogi|bbq chicken|soondubu|sundubu|tofu house|pocha|hanok|kimbap|gimbap|tteok|hangang)\b/],
+  ["japanese", /\b(japanese|sushi|ramen|izakaya|teriyaki|hibachi|udon|tokyo|osaka|katsu|yakitori|bento|omakase|teppanyaki)\b/],
+  ["vietnamese", /\b(pho|vietnamese|saigon|hanoi|banh mi)\b/],
+  ["thai", /\b(thai|bangkok|siam|pad thai)\b/],
+  ["chinese", /\b(chinese|china|szechuan|sichuan|hunan|canton|cantonese|mandarin|peking|beijing|shanghai|dim sum|dumplings?|wok|dragon|panda|hot pot|noodle house)\b/],
+  ["indian", /\b(indian|india|tandoori?|masala|tikka|biryani|bombay|mumbai|delhi|punjab[i]?|himalayan|nepal[i]?|curry house)\b/],
+  ["pizza", /\b(pizza|pizzeria)\b/],
+  ["italian", /\b(italian|trattoria|ristorante|osteria|pasta|spaghetti)\b/],
+  ["mexican", /\b(mexican|mexico|taco|tacos|taqueria|burrito|cantina|tex-?mex)\b/],
+  ["mediterranean", /\b(mediterranean|greek|lebanese|turkish|gyros?|kebabs?|kabobs?|shawarma|falafel)\b/],
+  ["seafood", /\b(seafood|crab|lobster|oysters?|fish market)\b/],
+  ["american", /\b(bbq|barbecue|smokehouse|steakhouse|diner)\b/],
+  ["fastfood", /\b(burgers?|wings|fried chicken|hot dogs?)\b/],
+];
+
+function categoryFromName(name) {
+  const n = String(name || "").toLowerCase();
+  for (const [id, re] of NAME_HINTS) if (re.test(n)) return id;
+  return null;
+}
+
+/** Decide which category an OSM place belongs to: cuisine tag, then name, then fallback. */
 function categorize(tags) {
   for (const c of parseCuisines(tags.cuisine)) {
     const id = CUISINE_TO_CATEGORY.get(c);
     if (id) return id;
   }
-  return tags.amenity === "fast_food" ? "fastfood" : "other";
+  return categoryFromName(tags.name) || (tags.amenity === "fast_food" ? "fastfood" : "other");
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { CATEGORIES, CATEGORY_BY_ID, parseCuisines, categorize };
+  module.exports = { CATEGORIES, CATEGORY_BY_ID, parseCuisines, categorize, categoryFromName };
 }

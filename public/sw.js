@@ -1,6 +1,6 @@
 // Offline support: cache the app shell, always try the network first so updates show up.
 // Restaurant/location API calls go to other origins and are never cached here.
-const CACHE = "dinner-shuffle-v2";
+const CACHE = "dinner-shuffle-v3";
 const SHELL = [
   "./",
   "styles.css",

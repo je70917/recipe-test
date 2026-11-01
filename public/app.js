@@ -47,6 +47,10 @@ const state = {
   disabled: new Set(store.get("disabled", ["other"])),
   avoidRecent: store.get("avoidRecent", true),
   history: store.get("history", []), // [{ id, name, category, lat, lon, date }]
+  hidden: store.get("hidden", {}), // id -> { name, date }  (closed / never suggest)
+  overrides: store.get("overrides", {}), // id -> categoryId  (user re-categorised a place)
+  custom: store.get("custom", []), // restaurants the user added themselves
+  placeId: null, // place open in the "More" sheet
   restaurants: [],
   status: "idle", // idle | loading | ready | error
   error: "",
@@ -130,6 +134,10 @@ const IS_APPLE = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 function directionsUrl(r) {
+  if (r.lat == null || r.lon == null) {
+    const q = encodeURIComponent([r.name, r.address].filter(Boolean).join(", "));
+    return IS_APPLE ? `https://maps.apple.com/?q=${q}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
+  }
   return IS_APPLE
     ? `https://maps.apple.com/?daddr=${r.lat},${r.lon}&q=${encodeURIComponent(r.name)}`
     : `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lon}`;
@@ -146,12 +154,18 @@ async function fetchWithTimeout(url, options = {}, ms = 25000) {
 }
 
 let toastTimer;
-function toast(msg) {
+function toast(msg, action) {
   const el = $("#toast");
-  el.textContent = msg;
+  el.replaceChildren(h("span", null, msg));
+  if (action) {
+    el.append(h("button", { type: "button", class: "toast-action", onclick: () => {
+      el.classList.remove("show");
+      action.run();
+    } }, action.label));
+  }
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => el.classList.remove("show"), action ? 5000 : 2600);
 }
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -219,6 +233,14 @@ function overpassQuery(lat, lon, radius) {
   );
 }
 
+/** Places the map data already marks as shut. */
+function isClosed(t) {
+  if (/^(closed|off)$/i.test((t.opening_hours || "").trim())) return true;
+  if (t.end_date && Date.parse(t.end_date) < Date.now()) return true;
+  if (/\((permanently )?closed\)|permanently closed/i.test(t.name)) return true;
+  return false;
+}
+
 function parseElements(elements, lat, lon) {
   const seen = new Set();
   const out = [];
@@ -227,6 +249,7 @@ function parseElements(elements, lat, lon) {
     const plat = el.lat ?? el.center?.lat;
     const plon = el.lon ?? el.center?.lon;
     if (!t.name || plat == null || plon == null) continue;
+    if (isClosed(t)) continue;
     const key = `${t.name.toLowerCase()}|${plat.toFixed(3)}|${plon.toFixed(3)}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -293,7 +316,7 @@ async function fetchRestaurants(lat, lon, radius) {
   );
 }
 
-const cacheKey = (loc, radius) => `${loc.lat.toFixed(3)},${loc.lon.toFixed(3)},${Math.round(radius)}`;
+const cacheKey = (loc, radius) => `v2|${loc.lat.toFixed(3)},${loc.lon.toFixed(3)},${Math.round(radius)}`;
 
 async function loadRestaurants({ force = false } = {}) {
   const loc = state.location;
@@ -372,6 +395,22 @@ async function useMyLocation(btn) {
 /* ------------------------------------------------------------------ *
  * Shuffle logic
  * ------------------------------------------------------------------ */
+/** Map restaurants + the user's own places, with category overrides applied (hidden included). */
+function allPlaces() {
+  const loc = state.location;
+  const limit = Math.max(RADII[state.radiusIdx].meters * 2, 16000);
+  const mine = state.custom
+    .map((c) => ({ ...c, distance: loc && c.lat != null ? distanceMeters(loc.lat, loc.lon, c.lat, c.lon) : null }))
+    .filter((c) => c.distance == null || c.distance <= limit);
+  const fetched = state.restaurants.map((r) => (state.overrides[r.id] ? { ...r, category: state.overrides[r.id] } : r));
+  return [...mine, ...fetched];
+}
+
+/** Everything the user hasn't hidden. */
+function visiblePlaces() {
+  return allPlaces().filter((r) => !state.hidden[r.id]);
+}
+
 function recentIds() {
   const cutoff = Date.now() - RECENT_DAYS * 86400000;
   return new Set(state.history.filter((h) => h.date >= cutoff).map((h) => h.id));
@@ -381,7 +420,7 @@ function recentIds() {
 function poolByCategory() {
   const recent = state.avoidRecent ? recentIds() : new Set();
   const map = new Map();
-  for (const r of state.restaurants) {
+  for (const r of visiblePlaces()) {
     if (state.disabled.has(r.category)) continue;
     if (!map.has(r.category)) map.set(r.category, []);
     map.get(r.category).push(r);
@@ -431,7 +470,7 @@ function shuffle() {
   // Slot-machine style: flicker random names, then settle card by card.
   state.shuffling = true;
   $("#shuffleBtn").disabled = true;
-  const names = state.restaurants.map((r) => r.name);
+  const names = visiblePlaces().map((r) => r.name);
   const cards = [...document.querySelectorAll(".card")];
   const tick = setInterval(() => {
     cards.forEach((card, i) => {
@@ -522,12 +561,13 @@ function renderStatus() {
   } else if (state.status === "ready") {
     const pool = poolByCategory();
     const total = [...pool.values()].reduce((n, l) => n + l.length, 0);
-    if (!state.restaurants.length) {
+    const count = visiblePlaces().length;
+    if (!count) {
       el.append(`No restaurants found within ${RADII[state.radiusIdx].label}. `,
         h("button", { class: "link", type: "button", onclick: openSheet }, "Try a bigger radius"));
       btn.disabled = true;
     } else {
-      el.append(`${state.restaurants.length} restaurants nearby · ${pool.size} categories in the mix`);
+      el.append(`${count} restaurants nearby · ${pool.size} categories in the mix`);
       if (!total) btn.disabled = true;
     }
   }
@@ -537,7 +577,7 @@ function renderChips() {
   const wrap = $("#chips");
   wrap.replaceChildren();
   const counts = new Map();
-  for (const r of state.restaurants) counts.set(r.category, (counts.get(r.category) || 0) + 1);
+  for (const r of visiblePlaces()) counts.set(r.category, (counts.get(r.category) || 0) + 1);
 
   for (const c of CATEGORIES) {
     const n = counts.get(c.id) || 0;
@@ -579,7 +619,7 @@ function renderCard(i) {
   const cat = CATEGORY_BY_ID[r.category];
   const locked = state.locked[i];
   const cuisine = r.cuisine && r.cuisine !== cat.label ? r.cuisine : null;
-  const details = [formatDistance(r.distance), cuisine, r.address].filter(Boolean).join(" · ");
+  const details = [r.distance != null && formatDistance(r.distance), r.custom && "My place", cuisine, r.address].filter(Boolean).join(" · ");
 
   return h("article", { class: "card" + (locked ? " locked" : ""), "data-slot": i, style: `--cat:${cat.color}` },
     h("div", { class: "card-emoji", "aria-hidden": "true" }, cat.emoji),
@@ -591,7 +631,8 @@ function renderCard(i) {
       h("div", { class: "card-actions" },
         h("a", { class: "btn small primary", href: directionsUrl(r), target: "_blank", rel: "noopener", onclick: () => choose(r) }, "Let's go"),
         r.phone && h("a", { class: "btn small", href: `tel:${r.phone.split(/[;,]/)[0].replace(/[^\d+]/g, "")}` }, "Call"),
-        r.website && h("a", { class: "btn small", href: r.website, target: "_blank", rel: "noopener" }, "Website"))),
+        r.website && h("a", { class: "btn small", href: r.website, target: "_blank", rel: "noopener" }, "Website"),
+        h("button", { type: "button", class: "btn small", "aria-label": `More options for ${r.name}`, onclick: () => openPlace(r.id) }, "⋯"))),
     h("button", {
       type: "button",
       class: "lock" + (locked ? " active" : ""),
@@ -613,28 +654,46 @@ function renderBrowse() {
     return;
   }
   const groups = new Map();
-  for (const r of state.restaurants) {
+  for (const r of visiblePlaces()) {
     if (!groups.has(r.category)) groups.set(r.category, []);
     groups.get(r.category).push(r);
   }
   const ordered = CATEGORIES.filter((c) => groups.has(c.id));
   if (!ordered.length) wrap.append(h("p", { class: "muted" }, "No restaurants found nearby."));
   for (const c of ordered) {
-    const list = groups.get(c.id);
+    const list = groups.get(c.id).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     wrap.append(
       h("details", { class: "group", style: `--cat:${c.color}` },
         h("summary", null, h("span", { "aria-hidden": "true" }, c.emoji), ` ${c.label}`, h("span", { class: "count" }, list.length)),
         h("ul", { class: "rows" },
           list.map((r) =>
-            h("li", null,
+            h("li", { class: "row-with-action" },
               h("a", { href: directionsUrl(r), target: "_blank", rel: "noopener" },
                 h("span", { class: "row-name" }, r.name),
-                h("span", { class: "row-meta" }, [r.cuisine, formatDistance(r.distance)].filter(Boolean).join(" · ")))))))
+                h("span", { class: "row-meta" },
+                  [r.custom && "My place", r.cuisine, r.distance != null && formatDistance(r.distance)].filter(Boolean).join(" · "))),
+              h("button", { type: "button", class: "more", "aria-label": `More options for ${r.name}`, onclick: () => openPlace(r.id) }, "⋯")))))
     );
   }
 }
 
+function renderHidden() {
+  const list = $("#hiddenList");
+  list.replaceChildren();
+  const entries = Object.entries(state.hidden).sort((a, b) => b[1].date - a[1].date);
+  if (!entries.length) {
+    list.append(h("li", { class: "muted" }, "Nothing hidden. Use ⋯ → Hide on a place that closed or that you never want suggested."));
+    return;
+  }
+  for (const [id, info] of entries) {
+    list.append(h("li", { class: "history-row" },
+      h("span", { class: "row-name" }, info.name),
+      h("button", { type: "button", class: "link", onclick: () => unhide(id) }, "Unhide")));
+  }
+}
+
 function renderHistory() {
+  renderHidden();
   const list = $("#historyList");
   list.replaceChildren();
   $("#avoidRecent").checked = state.avoidRecent;
@@ -652,6 +711,161 @@ function renderHistory() {
         h("span", { class: "row-meta" }, fmt.format(new Date(item.date))))
     );
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Editing places: hide, re-categorise, add your own
+ * ------------------------------------------------------------------ */
+
+/** Re-sync the 3 picks after an edit; a pick that got hidden is replaced. */
+function refreshAfterEdit() {
+  const byId = new Map(visiblePlaces().map((r) => [r.id, r]));
+  const before = state.picks;
+  state.picks = before.map((p) => (p ? byId.get(p.id) || null : null));
+  before.forEach((p, i) => {
+    if (p && !state.picks[i]) {
+      state.locked[i] = false;
+      fillSlot(i);
+    }
+  });
+  render();
+}
+
+/** Put a restaurant from a category not already on screen into slot i. */
+function fillSlot(i) {
+  const pool = poolByCategory();
+  const used = new Set(state.picks.filter((p, j) => p && j !== i).map((p) => p.category));
+  const cats = [...pool.keys()].filter((c) => !used.has(c));
+  if (cats.length) state.picks[i] = randomItem(pool.get(randomItem(cats)));
+}
+
+function findPlace(id) {
+  return allPlaces().find((r) => r.id === id) || state.custom.find((r) => r.id === id);
+}
+
+function openPlace(id) {
+  const r = findPlace(id);
+  if (!r) return;
+  state.placeId = id;
+  $("#placeTitle").textContent = r.name;
+  $("#placeMeta").textContent = [r.custom ? "Added by you" : r.cuisine, r.address, r.distance != null && formatDistance(r.distance)]
+    .filter(Boolean).join(" · ");
+  $("#placeCategory").value = r.category;
+  $("#placeDelete").hidden = !r.custom;
+  $("#placeHide").hidden = !!r.custom;
+  $("#placeSheet").showModal();
+}
+
+function closePlace() {
+  if ($("#placeSheet").open) $("#placeSheet").close();
+}
+
+function setCategory(id, cat) {
+  const mine = state.custom.find((c) => c.id === id);
+  if (mine) {
+    mine.category = cat;
+    store.set("custom", state.custom);
+  } else {
+    const original = state.restaurants.find((r) => r.id === id)?.category;
+    if (cat === original) delete state.overrides[id];
+    else state.overrides[id] = cat;
+    store.set("overrides", state.overrides);
+  }
+  state.disabled.delete(cat); // you clearly want this category in the mix
+  store.set("disabled", [...state.disabled]);
+  refreshAfterEdit();
+  toast(`Moved to ${CATEGORY_BY_ID[cat].label}`);
+}
+
+function hidePlace(id) {
+  const r = findPlace(id);
+  if (!r) return;
+  state.hidden[id] = { name: r.name, date: Date.now() };
+  store.set("hidden", state.hidden);
+  closePlace();
+  refreshAfterEdit();
+  toast(`${r.name} won't be suggested again`, { label: "Undo", run: () => unhide(id) });
+}
+
+function unhide(id) {
+  delete state.hidden[id];
+  store.set("hidden", state.hidden);
+  refreshAfterEdit();
+}
+
+function deleteCustom(id) {
+  const r = state.custom.find((c) => c.id === id);
+  if (!r || !confirm(`Remove ${r.name} from your places?`)) return;
+  state.custom = state.custom.filter((c) => c.id !== id);
+  store.set("custom", state.custom);
+  closePlace();
+  refreshAfterEdit();
+}
+
+/** Look a place up on the map. Without an address, search the name near the current location. */
+async function geocode(query, near, bounded) {
+  const p = new URLSearchParams({ format: "jsonv2", limit: "1", q: query });
+  if (near) {
+    const d = bounded ? 0.15 : 0.5;
+    p.set("viewbox", `${near.lon - d},${near.lat + d},${near.lon + d},${near.lat - d}`);
+    if (bounded) p.set("bounded", "1");
+  }
+  const res = await fetchWithTimeout(`${NOMINATIM}/search?${p}`, { headers: { Accept: "application/json" } }, 10000);
+  if (!res.ok) return null;
+  const [hit] = await res.json();
+  return hit ? { lat: Number(hit.lat), lon: Number(hit.lon), address: hit.display_name.split(",").slice(0, 3).join(",").trim() } : null;
+}
+
+function openAdd(category) {
+  $("#addForm").reset();
+  $("#addError").textContent = "";
+  if (category) $("#addCategory").value = category;
+  $("#addSheet").showModal();
+  $("#addName").focus();
+}
+
+async function onAdd(e) {
+  e.preventDefault();
+  const name = $("#addName").value.trim();
+  const category = $("#addCategory").value;
+  const address = $("#addAddress").value.trim();
+  if (!name || !category) {
+    $("#addError").textContent = "Add a name and pick a category.";
+    return;
+  }
+  const btn = $("#addSave");
+  btn.disabled = true;
+  btn.textContent = "Finding it on the map…";
+  let geo = null;
+  try {
+    geo = address ? await geocode(address, state.location, false) : await geocode(name, state.location, true);
+  } catch {
+    geo = null;
+  }
+  btn.disabled = false;
+  btn.textContent = "Save";
+
+  state.custom.push({
+    id: `custom/${Date.now()}`,
+    custom: true,
+    name,
+    category,
+    cuisine: "",
+    address: address || geo?.address || "",
+    lat: geo?.lat ?? null,
+    lon: geo?.lon ?? null,
+    phone: "",
+    website: null,
+    hours: "",
+  });
+  store.set("custom", state.custom);
+  state.disabled.delete(category);
+  store.set("disabled", [...state.disabled]);
+  $("#addSheet").close();
+  refreshAfterEdit();
+  toast(geo
+    ? `Added ${name} to ${CATEGORY_BY_ID[category].label}`
+    : `Added ${name}. Couldn't pin it on the map, so directions will search by name.`);
 }
 
 /* ------------------------------------------------------------------ *
@@ -729,6 +943,22 @@ function init() {
     if (e.target === e.currentTarget) closeSheet(); // tap on backdrop
   });
   $("#refreshBtn").addEventListener("click", () => loadRestaurants({ force: true }));
+
+  const catOptions = () => CATEGORIES.map((c) => h("option", { value: c.id }, `${c.emoji} ${c.label}`));
+  $("#placeCategory").append(...catOptions());
+  $("#addCategory").append(h("option", { value: "" }, "Choose…"), ...catOptions());
+  $("#placeCategory").addEventListener("change", (e) => state.placeId && setCategory(state.placeId, e.target.value));
+  $("#placeHide").addEventListener("click", () => state.placeId && hidePlace(state.placeId));
+  $("#placeDelete").addEventListener("click", () => state.placeId && deleteCustom(state.placeId));
+  $("#placeClose").addEventListener("click", closePlace);
+  $("#addBtn").addEventListener("click", () => openAdd());
+  $("#addClose").addEventListener("click", () => $("#addSheet").close());
+  $("#addForm").addEventListener("submit", onAdd);
+  for (const id of ["#placeSheet", "#addSheet"]) {
+    $(id).addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.close();
+    });
+  }
   $("#allOn").addEventListener("click", () => {
     state.disabled.clear();
     store.set("disabled", []);

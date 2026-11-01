@@ -660,6 +660,77 @@ summary .count {
   font-size: 16px; /* prevents iOS zoom-on-focus */
 }
 
+/* ---------- Editing places ---------- */
+.row-with-action {
+  display: flex;
+  align-items: stretch;
+}
+
+.row-with-action > a {
+  flex: 1;
+  min-width: 0;
+}
+
+.more {
+  flex: none;
+  width: 44px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+
+.group .rows li:last-child > .more {
+  border-bottom: 0;
+}
+
+.add-btn {
+  width: 100%;
+  margin-bottom: 12px;
+  border-style: dashed;
+}
+
+.btn.danger {
+  color: #d23b2a;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.field em {
+  color: var(--muted);
+  font-weight: 400;
+  font-style: normal;
+}
+
+.field input,
+.field select {
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.section-head.spaced {
+  margin-top: 28px;
+}
+
+.toast-action {
+  margin-left: 12px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 800;
+}
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed;
@@ -680,6 +751,7 @@ summary .count {
 }
 
 .toast.show {
+  pointer-events: auto;
   opacity: 1;
   transform: translate(-50%, 0);
 }
